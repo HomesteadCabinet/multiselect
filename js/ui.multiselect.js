@@ -31,18 +31,20 @@ $.widget("ui.multiselect", {
   options: {
 		sortable: true,
 		searchable: true,
-		doubleClickable: true,
+		doubleClickable: false,
 		singleClickable: false,
 		animated: 'fast',
-		show: 'slideDown',
-		hide: 'slideUp',
+		show: 'fadeIn',
+		hide: 'fadeOut',
 		dividerLocation: 0.6,
 		availableFirst: false,
 		nodeComparator: function(node1,node2) {
 			var text1 = node1.text(),
-				text2 = node2.text();
+			    text2 = node2.text();
 			return text1 == text2 ? 0 : (text1 < text2 ? -1 : 1);
-		}
+		},
+		includeRemoveAll: false,
+		includeAddAll: false
 	},
 	_create: function() {
 		this.element.hide();
@@ -51,8 +53,8 @@ $.widget("ui.multiselect", {
 		this.count = 0; // number of currently selected options
 		this.selectedContainer = $('<div class="selected"></div>').appendTo(this.container);
 		this.availableContainer = $('<div class="available"></div>')[this.options.availableFirst?'prependTo': 'appendTo'](this.container);
-		this.selectedActions = $('<div class="actions ui-widget-header ui-helper-clearfix"><span class="count">0 '+$.ui.multiselect.locale.itemsCount+'</span><a href="#" class="remove-all">'+$.ui.multiselect.locale.removeAll+'</a></div>').appendTo(this.selectedContainer);
-		this.availableActions = $('<div class="actions ui-widget-header ui-helper-clearfix"><input type="text" class="search empty ui-widget-content ui-corner-all"/><a href="#" class="add-all">'+$.ui.multiselect.locale.addAll+'</a></div>').appendTo(this.availableContainer);
+		this.selectedActions = $('<div class="actions ui-widget-header ui-helper-clearfix"><span class="count">0 '+$.ui.multiselect.locale.itemsCount+'</span>'+(this.options.includeRemoveAll?'<a href="#" class="remove-all">'+$.ui.multiselect.locale.removeAll+'</a>':'<span class="remove-all">&nbsp;</span>')+'</div>').appendTo(this.selectedContainer);
+		this.availableActions = $('<div class="actions ui-widget-header ui-helper-clearfix"><input type="text" class="search empty ui-widget-content ui-corner-all"/>'+(this.options.includeAddAll?'<a href="#" class="add-all">'+$.ui.multiselect.locale.addAll+'</a>':'<span class="add-all">&nbsp;</span>')+'</div>').appendTo(this.availableContainer);
 		this.selectedList = $('<ul class="selected connected-list"><li class="ui-helper-hidden-accessible"></li></ul>').bind('selectstart', function(){return false;}).appendTo(this.selectedContainer);
 		this.availableList = $('<ul class="available connected-list"><li class="ui-helper-hidden-accessible"></li></ul>').bind('selectstart', function(){return false;}).appendTo(this.availableContainer);
 
@@ -116,8 +118,8 @@ $.widget("ui.multiselect", {
 
 		// batch actions
 		this.container.find(".remove-all").click(function() {
-			that.element.find('option').removeAttr('selected')
-			that._populateLists(that.element.find('option'));
+			that._populateLists(that.element.find('option').removeAttr('selected'));
+			that.element.trigger('change');
 			return false;
 		});
 
@@ -131,6 +133,7 @@ $.widget("ui.multiselect", {
 				options.attr('selected', 'selected');
 			}
 			that._populateLists(that.element.find('option'));
+			that.element.trigger('change');
 			return false;
 		});
 	},
@@ -140,6 +143,36 @@ $.widget("ui.multiselect", {
 
 		$.Widget.prototype.destroy.apply(this, arguments);
 	},
+	addOption: function(option) {
+		// Append the option
+		option = $(option);
+		var select = this.element;
+		select.append(option);
+
+		var item = this._getOptionNode(option).appendTo(option.attr('selected') ? this.selectedList : this.availableList).show();
+
+		if (option.attr('selected')) {
+			this.count += 1;
+		}
+		this._applyItemState(item, option.attr('selected'));
+		item.data('idx', this.count);
+
+		// update count
+		this._updateCount();
+		this._filter.apply(this.availableContainer.find('input.search'), [this.availableList]);
+	},
+        // Redisplay the lists of selected/available options.
+        // Call this after you've selected/unselected some options programmatically.
+        // GRIPE This is O(n) where n is the length of the list - seems like
+        // there must be a smarter way of doing this, but I have not been able
+        // to come up with one. I see no way to detect programmatic setting of
+        // the option's selected property, and without that, it seems like we
+        // can't have a general-case listener that does its thing every time an
+        // option is selected.
+        update: function() {
+		// Redisplay our lists.
+		this._populateLists(this.element.find('option'));
+        },
 	_populateLists: function(options) {
 		this.selectedList.children('.ui-element').remove();
 		this.availableList.children('.ui-element').remove();
@@ -147,7 +180,7 @@ $.widget("ui.multiselect", {
 
 		var that = this;
 		var items = $(options.map(function(i) {
-		  var item = that._getOptionNode(this).appendTo(this.selected ? that.selectedList : that.availableList).show();
+		var item = that._getOptionNode(this).appendTo(this.selected ? that.selectedList : that.availableList).show();
 
 			if (this.selected) that.count += 1;
 			that._applyItemState(item, this.selected);
@@ -291,6 +324,11 @@ $.widget("ui.multiselect", {
 			var item = that._setSelected($(this).parent(), true);
 			that.count += 1;
 			that._updateCount();
+
+			// Prevent extra clicks from triggering bogus add events, if a user
+			// tries clicking during the removal process.
+			$(this).unbind('click');
+
 			return false;
 		});
 
@@ -317,6 +355,11 @@ $.widget("ui.multiselect", {
 			that._setSelected($(this).parent(), false);
 			that.count -= 1;
 			that._updateCount();
+
+			// Prevent extra clicks from triggering bogus remove events, if a
+			// user tries clicking during the removal process.
+			$(this).unbind('click');
+
 			return false;
 		});
 	},
