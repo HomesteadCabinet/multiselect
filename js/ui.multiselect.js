@@ -32,6 +32,7 @@ $.widget("ui.multiselect", {
 		sortable: true,
 		searchable: true,
 		doubleClickable: true,
+		singleClickable: false,
 		animated: 'fast',
 		show: 'slideDown',
 		hide: 'slideUp',
@@ -230,6 +231,7 @@ $.widget("ui.multiselect", {
 		}
 		
 		this._registerDoubleClickEvents(item);
+		this._registerSingleClickEvents(item);
 		this._registerHoverEvents(item);
 	},
 	// taken from John Resig's liveUpdate script
@@ -258,13 +260,19 @@ $.widget("ui.multiselect", {
 		}
 	},
 	_registerDoubleClickEvents: function(elements) {
-		if (!this.options.doubleClickable) return;
+		if (!this.options.doubleClickable || this.options.singleClickable) return;
 		elements.dblclick(function(ev) {
 			if ($(ev.target).closest('.action').length === 0) {
 				// This may be triggered with rapid clicks on actions as well. In that
 				// case don't trigger an additional click.
 				elements.find('a.action').click();
 			}
+		});
+	},
+	_registerSingleClickEvents: function(elements) {
+		if (!this.options.singleClickable) return;
+		elements.click(function() {
+			elements.find('a.action').click();
 		});
 	},
 	_registerHoverEvents: function(elements) {
