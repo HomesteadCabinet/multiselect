@@ -134,11 +134,17 @@
 }
 
 .ui-multiselect input.search {
-  background: #fafafa;
+  background: #ffffff;
   border: 1px solid #999;
   height: 18px;
   margin: 4px 7px;
-  opacity: 0.5;
+  opacity: 0.9;
   padding: 1px 6px;
   width: 192px;
+}
+
+.ui-multiselect .ui-state-active {
+  background: #fff !important;
+  color: #333 !important;
+  opacity: 0;
 }
